@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Виртуальные окружения
+.venv/
+venv/
+env/
+ENV/
+
+# Тесты и кэш
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# IDE / редакторы
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ОС
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Логи
+*.log

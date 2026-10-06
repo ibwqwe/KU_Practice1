@@ -14,6 +14,11 @@ sys.path.insert(
 import main
 
 
+def make_vfs():
+    """Create a fresh default VFS for a test."""
+    return main.make_default_vfs()
+
+
 class TestSplitPath(unittest.TestCase):
     """Tests for split_path."""
 
@@ -46,78 +51,74 @@ class TestSplitPath(unittest.TestCase):
 class TestLs(unittest.TestCase):
     """Tests for ls command."""
 
-    def setUp(self):
-        """Prepare default VFS before each test."""
-        self.vfs = main.make_default_vfs()
-
     def test_ls_root(self):
         """ls in root shows files and dirs."""
-        result = main.cmd_ls(self.vfs, [], [])
+        vfs = make_vfs()
+        result = main.cmd_ls(vfs, [], [])
         self.assertIn("readme.txt", result)
         self.assertIn("docs", result)
 
     def test_ls_file(self):
         """ls on file shows its name."""
-        result = main.cmd_ls(self.vfs, [], ["readme.txt"])
+        vfs = make_vfs()
+        result = main.cmd_ls(vfs, [], ["readme.txt"])
         self.assertEqual(result, "readme.txt")
 
     def test_ls_missing(self):
         """ls on missing path gives error."""
-        result = main.cmd_ls(self.vfs, [], ["nope"])
+        vfs = make_vfs()
+        result = main.cmd_ls(vfs, [], ["nope"])
         self.assertTrue(result.startswith("ls:"))
 
 
 class TestCd(unittest.TestCase):
     """Tests for cd command."""
 
-    def setUp(self):
-        """Prepare default VFS."""
-        self.vfs = main.make_default_vfs()
-
     def test_cd_root(self):
         """cd without args goes to root."""
-        text, cwd = main.cmd_cd(self.vfs, ["docs"], [])
+        vfs = make_vfs()
+        text, cwd = main.cmd_cd(vfs, ["docs"], [])
         self.assertEqual(cwd, [])
 
     def test_cd_into_dir(self):
         """cd into existing dir."""
-        text, cwd = main.cmd_cd(self.vfs, [], ["docs"])
+        vfs = make_vfs()
+        text, cwd = main.cmd_cd(vfs, [], ["docs"])
         self.assertEqual(cwd, ["docs"])
 
     def test_cd_missing(self):
         """cd into missing dir - error, cwd unchanged."""
-        text, cwd = main.cmd_cd(self.vfs, [], ["nope"])
+        vfs = make_vfs()
+        text, cwd = main.cmd_cd(vfs, [], ["nope"])
         self.assertEqual(cwd, [])
         self.assertTrue(text.startswith("cd:"))
 
     def test_cd_into_file(self):
         """cd on file - error."""
-        text, cwd = main.cmd_cd(
-            self.vfs, [], ["readme.txt"]
-        )
+        vfs = make_vfs()
+        text, cwd = main.cmd_cd(vfs, [], ["readme.txt"])
         self.assertTrue(text.startswith("cd:"))
 
 
 class TestCatTac(unittest.TestCase):
     """Tests for cat and tac commands."""
 
-    def setUp(self):
-        """Prepare default VFS."""
-        self.vfs = main.make_default_vfs()
-
     def test_cat(self):
         """cat shows file content."""
-        result = main.cmd_cat(self.vfs, [], ["readme.txt"])
+        vfs = make_vfs()
+        result = main.cmd_cat(vfs, [], ["readme.txt"])
         self.assertIn("VFS", result)
 
     def test_cat_missing(self):
         """cat on missing file - error."""
-        result = main.cmd_cat(self.vfs, [], ["nope"])
+        vfs = make_vfs()
+        result = main.cmd_cat(vfs, [], ["nope"])
         self.assertTrue(result.startswith("cat:"))
 
     def test_cat_dir(self):
         """cat on dir - error."""
-        result = main.cmd_cat(self.vfs, [], ["docs"])
+        vfs = make_vfs()
+        result = main.cmd_cat(vfs, [], ["docs"])
         self.assertTrue(result.startswith("cat:"))
 
     def test_tac(self):

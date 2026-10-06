@@ -1,0 +1,31 @@
+{
+  "name": "nested",
+  "root": {
+    "type": "dir",
+    "children": {
+      "level1": {
+        "type": "dir",
+        "children": {
+          "level2": {
+            "type": "dir",
+            "children": {
+              "level3": {
+                "type": "dir",
+                "children": {
+                  "deep.txt": {
+                    "type": "file",
+                    "content": "Файл на 4-м уровне вложенности."
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "top.txt": {
+        "type": "file",
+        "content": "Файл в корне."
+      }
+    }
+  }
+}

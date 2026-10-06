@@ -1,0 +1,16 @@
+{
+  "name": "with_motd",
+  "root": {
+    "type": "dir",
+    "children": {
+      "motd": {
+        "type": "file",
+        "content": "Добро пожаловать в myVFS!\nСегодня хороший день для тестирования."
+      },
+      "data.txt": {
+        "type": "file",
+        "content": "Какие-то данные."
+      }
+    }
+  }
+}

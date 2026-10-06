@@ -1,0 +1,39 @@
+{
+  "name": "default",
+  "root": {
+    "type": "dir",
+    "children": {
+      "readme.txt": {
+        "type": "file",
+        "content": "Это стандартная VFS для тестирования."
+      },
+      "notes.md": {
+        "type": "file",
+        "content": "# Заметки\nЗдесь можно хранить текст."
+      },
+      "home": {
+        "type": "dir",
+        "children": {
+          "user": {
+            "type": "dir",
+            "children": {
+              "config.ini": {
+                "type": "file",
+                "content": "[settings]\ntheme=dark"
+              }
+            }
+          }
+        }
+      },
+      "etc": {
+        "type": "dir",
+        "children": {
+          "hostname": {
+            "type": "file",
+            "content": "mycomputer"
+          }
+        }
+      }
+    }
+  }
+}

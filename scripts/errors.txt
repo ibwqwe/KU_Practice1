@@ -9,5 +9,3 @@ unknown_command arg1 arg2
 cd /path
 xyz
 ls final
-
-exit

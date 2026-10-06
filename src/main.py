@@ -120,14 +120,6 @@ def split_path(path):
 
 
 def split_parent(path):
-    """
-    Split path into parent dir and last component name.
-
-    Examples:
-        "docs/new.txt"    -> ("docs", "new.txt")
-        "new.txt"         -> ("", "new.txt")
-        "/etc/hostname"   -> ("/etc", "hostname")
-    """
     parts = split_path(path)
     if not parts:
         return "", ""
@@ -143,18 +135,6 @@ def split_parent(path):
 
 
 def get_node(vfs, cwd, path):
-    """
-    Find a node in VFS tree by path.
-
-    Supports:
-        ""       — cwd node
-        "/"      — root
-        "/etc"   — absolute path
-        "docs"   — relative path
-        ".."     — go one level up
-
-    Returns (node, new_cwd, error).
-    """
     if path == "":
         parts = list(cwd)
     elif path.startswith("/"):
@@ -348,15 +328,6 @@ class Window:
     """
 
     def __init__(self, root, vfs, motd=None, script_path=None):
-        """
-        Create window and widgets.
-
-        Args:
-            root        — Tk root window
-            vfs         — loaded VFS
-            motd        — greeting text or None
-            script_path — startup script path or None
-        """
         self.root = root
         self.vfs = vfs
         self.cwd = []

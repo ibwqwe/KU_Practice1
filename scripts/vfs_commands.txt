@@ -1,0 +1,56 @@
+# Скрипт для тестирования команд ls, cd, cat, tac.
+# Проверяет работу с VFS: навигацию, чтение файлов, обработку ошибок.
+
+# --- ls в корне ---
+ls
+
+# --- cd: переход в подпапки ---
+cd home
+ls
+
+cd user
+ls
+
+# --- cat: чтение файла ---
+cat config.ini
+
+# --- tac: тот же файл, строки в обратном порядке ---
+tac config.ini
+
+# --- подъём на уровень вверх ---
+cd ..
+ls
+
+# --- переход в другую ветку от корня ---
+cd /
+ls
+
+cd etc
+ls
+
+# --- cat для файла в другой ветке ---
+cat hostname
+
+# --- tac ---
+tac hostname
+
+# --- возврат в корень ---
+cd /
+
+# --- ошибки: несуществующий путь ---
+cd missing_folder
+
+ls missing_folder
+
+cat missing_file.txt
+
+# --- ошибка: cat/tac на папку ---
+cat home
+
+tac etc
+
+# --- ошибка: cd на файл ---
+cd readme.txt
+
+# --- ls на файл ---
+ls readme.txt

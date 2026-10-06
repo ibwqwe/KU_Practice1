@@ -1,5 +1,5 @@
 """
-Эмулятор оболочки. Этап 4: рабочие команды ls, cd, cat, tac.
+Эмулятор оболочки. Этап 5: команды touch и rm (изменение VFS в памяти).
 """
 
 import sys
@@ -9,10 +9,18 @@ import tkinter as tk
 VFS_NAME = "myVFS"
 
 
-#аргументы
+# ---------------------------------------------------------------- аргументы
 
 def parse_args(argv):
-    """Разбирает аргументы вида vfs=... и script=... ."""
+    """
+    Разбирает аргументы командной строки.
+
+    Поддерживает:
+        vfs=<путь>     — путь к JSON-файлу VFS
+        script=<путь>  — путь к стартовому скрипту
+
+    Возвращает кортеж (vfs_path, script_path).
+    """
     vfs_path = None
     script_path = None
 
@@ -27,10 +35,14 @@ def parse_args(argv):
     return vfs_path, script_path
 
 
-#VFS
+# ---------------------------------------------------------------- VFS
 
 def make_default_vfs():
-    """VFS по умолчанию — если путь не указан или загрузка не удалась."""
+    """
+    Возвращает VFS по умолчанию.
+
+    Используется, если путь к VFS не указан или загрузка не удалась.
+    """
     return {
         "name": "default",
         "root": {
@@ -55,7 +67,13 @@ def make_default_vfs():
 
 
 def load_vfs(path):
-    """Читает VFS из JSON-файла. Возвращает (vfs, ошибка)."""
+    """
+    Читает VFS из JSON-файла.
+
+    Возвращает кортеж (vfs, ошибка):
+        - при успехе: (словарь VFS, None)
+        - при ошибке: (None, строка с описанием ошибки)
+    """
     try:
         with open(path, "r", encoding="utf-8") as f:
             vfs = json.load(f)
@@ -73,7 +91,11 @@ def load_vfs(path):
 
 
 def find_motd(vfs):
-    """Ищет файл motd в корне VFS. Возвращает строку или None."""
+    """
+    Ищет файл motd в корне VFS.
+
+    Возвращает содержимое файла motd, если он есть, иначе None.
+    """
     root = vfs["root"]
     children = root.get("children", {})
 
@@ -85,16 +107,16 @@ def find_motd(vfs):
     return None
 
 
-#навигация
+# ---------------------------------------------------------------- навигация
 
 def split_path(path):
     """
     Разбирает путь на список непустых частей.
 
-    Пример:
-      "/home/user"   -> ["home", "user"]
-      "home//user/"  -> ["home", "user"]
-      ""             -> []
+    Примеры:
+        "/home/user"   -> ["home", "user"]
+        "home//user/"  -> ["home", "user"]
+        ""             -> []
     """
     parts = []
     for part in path.split("/"):
@@ -103,43 +125,62 @@ def split_path(path):
     return parts
 
 
+def split_parent(path):
+    """
+    Разделяет путь на родительскую папку и имя последнего компонента.
+
+    Примеры:
+        "docs/new.txt"    -> ("docs", "new.txt")
+        "new.txt"         -> ("", "new.txt")
+        "/etc/hostname"   -> ("/etc", "hostname")
+        "docs/sub/f.txt"  -> ("docs/sub", "f.txt")
+
+    Возвращает кортеж (родительская_папка, имя).
+    """
+    parts = split_path(path)
+    if not parts:
+        return "", ""
+
+    name = parts[-1]
+    parent_parts = parts[:-1]
+    parent = "/".join(parent_parts)
+
+    # сохраняем абсолютность: если путь был абсолютным — родитель тоже
+    if path.startswith("/") and parent:
+        parent = "/" + parent
+
+    return parent, name
+
+
 def get_node(vfs, cwd, path):
     """
-    Находит узел в VFS по пути.
+    Находит узел в дереве VFS по указанному пути.
 
-    vfs — дерево VFS
-    cwd — текущая директория (список частей, например ["home", "user"])
-    path — путь (строка). Может быть:
-        ""            — вернуть узел cwd
-        "/"           — корень
-        "/etc"        — абсолютный путь от корня
-        "docs"        — относительный путь от cwd
-        ".."          — на уровень вверх
-        "../.."       — на два уровня вверх
+    Поддерживает:
+        ""       — вернуть узел cwd
+        "/"      — корень
+        "/etc"   — абсолютный путь
+        "docs"   — относительный путь
+        ".."     — на уровень вверх
 
     Возвращает (узел, новый_cwd, ошибка).
-    новый_cwd — только если узел найден.
     """
-    # Определяем стартовые части пути
     if path == "":
-        parts = list(cwd)                        # остаёмся на месте
+        parts = list(cwd)
     elif path.startswith("/"):
-        parts = split_path(path)                 # абсолютный путь от корня
+        parts = split_path(path)
     else:
-        parts = list(cwd) + split_path(path)     # относительный путь
+        parts = list(cwd) + split_path(path)
 
-    # Идём от корня по частям
     node = vfs["root"]
     result_parts = []
 
     for part in parts:
         if part == "..":
-            # на уровень вверх, но не выше корня
             if result_parts:
                 result_parts.pop()
             continue
 
-        # узел должен быть папкой, чтобы в него зайти
         if node.get("type") != "dir":
             return None, None, f"не папка: {'/'.join(result_parts) or '/'}"
 
@@ -154,11 +195,12 @@ def get_node(vfs, cwd, path):
     return node, result_parts, None
 
 
-#команды VFS
+# ---------------------------------------------------------------- команды чтения
 
 def cmd_ls(vfs, cwd, args):
-    """ls — вывести содержимое папки или имя файла."""
-    # Берём первый аргумент; если его нет — показываем текущую папку
+    """
+    Команда ls — вывод содержимого папки или имени файла.
+    """
     path = args[0] if args else ""
 
     node, _, error = get_node(vfs, cwd, path)
@@ -166,33 +208,37 @@ def cmd_ls(vfs, cwd, args):
         return f"ls: {error}"
 
     if node.get("type") == "file":
-        # как в UNIX: ls file.txt показывает file.txt
         return path
 
-    # node — папка. Собираем имена детей
     children = node.get("children", {})
     if not children:
-        return ""                                # пустая папка — пустой вывод
+        return ""
 
     return "\n".join(sorted(children.keys()))
 
 
 def cmd_cd(vfs, cwd, args):
-    """cd — сменить текущую директорию. Возвращает (текст, новый_cwd)."""
-    path = args[0] if args else "/"              # без аргумента — в корень
+    """
+    Команда cd — смена текущей директории.
+
+    Возвращает (текст, новый_cwd).
+    """
+    path = args[0] if args else "/"
 
     node, new_cwd, error = get_node(vfs, cwd, path)
     if error:
-        return f"cd: {error}", cwd               # ошибка — cwd не меняем
+        return f"cd: {error}", cwd
 
     if node.get("type") != "dir":
         return f"cd: не папка: {path}", cwd
 
-    return "", new_cwd                            # успех, cwd обновлён
+    return "", new_cwd
 
 
 def cmd_cat(vfs, cwd, args):
-    """cat — вывести содержимое файла."""
+    """
+    Команда cat — вывод содержимого файла.
+    """
     if not args:
         return "cat: не указан файл"
 
@@ -208,7 +254,9 @@ def cmd_cat(vfs, cwd, args):
 
 
 def cmd_tac(vfs, cwd, args):
-    """tac — как cat, но строки в обратном порядке."""
+    """
+    Команда tac — как cat, но строки в обратном порядке.
+    """
     if not args:
         return "tac: не указан файл"
 
@@ -221,54 +269,148 @@ def cmd_tac(vfs, cwd, args):
         return f"tac: это папка: {path}"
 
     content = node.get("content", "")
-    lines = content.split("\n")                   # разбиваем на строки
-    lines.reverse()                               # переворачиваем
+    lines = content.split("\n")
+    lines.reverse()
     return "\n".join(lines)
 
 
-#окно
+# ---------------------------------------------------------------- команды изменения
+
+def cmd_touch(vfs, cwd, args):
+    """
+    Команда touch — создаёт пустой файл в VFS (в памяти).
+
+    Правила:
+        - если аргумент не указан — ошибка;
+        - если родительская папка не существует — ошибка;
+        - если родительский узел — не папка — ошибка;
+        - если файл с таким именем уже существует — ошибка.
+
+    Изменения касаются только VFS в памяти. JSON-файл на диске
+    остаётся неизменным.
+    """
+    if not args:
+        return "touch: не указан файл"
+
+    path = args[0]
+    parent_path, name = split_parent(path)
+
+    if not name:
+        return f"touch: некорректный путь: {path}"
+
+    parent_node, _, error = get_node(vfs, cwd, parent_path)
+    if error:
+        return f"touch: {error}"
+
+    if parent_node.get("type") != "dir":
+        return f"touch: не папка: {parent_path or '/'}"
+
+    children = parent_node.setdefault("children", {})
+    if name in children:
+        return f"touch: файл уже существует: {name}"
+
+    children[name] = {"type": "file", "content": ""}
+    return ""
+
+
+def cmd_rm(vfs, cwd, args):
+    """
+    Команда rm — удаляет файл из VFS (из памяти).
+
+    Правила:
+        - если аргумент не указан — ошибка;
+        - если родительская папка не существует — ошибка;
+        - если файла с таким именем нет — ошибка;
+        - если узел — папка — ошибка (удаление папок не поддерживается).
+
+    Изменения касаются только VFS в памяти. JSON-файл на диске
+    остаётся неизменным.
+    """
+    if not args:
+        return "rm: не указан файл"
+
+    path = args[0]
+    parent_path, name = split_parent(path)
+
+    if not name:
+        return f"rm: некорректный путь: {path}"
+
+    parent_node, _, error = get_node(vfs, cwd, parent_path)
+    if error:
+        return f"rm: {error}"
+
+    if parent_node.get("type") != "dir":
+        return f"rm: не папка: {parent_path or '/'}"
+
+    children = parent_node.get("children", {})
+    if name not in children:
+        full = "/" + "/".join(split_path(parent_path) + [name])
+        return f"rm: файл не найден: {full}"
+
+    if children[name].get("type") == "dir":
+        return f"rm: это папка, удаление папок не поддерживается: {name}"
+
+    del children[name]
+    return ""
+
+
+# ---------------------------------------------------------------- окно
 
 class Window:
-    """Окно приложения: область вывода + поле ввода."""
+    """
+    Окно приложения.
+
+    Отвечает за область вывода, поле ввода и выполнение команд
+    в контексте текущей VFS и cwd.
+    """
 
     def __init__(self, root, vfs, motd=None, script_path=None):
+        """
+        Создаёт окно и все виджеты.
+
+        Параметры:
+            root        — корневое окно Tkinter
+            vfs         — загруженная VFS (словарь)
+            motd        — текст приветствия или None
+            script_path — путь к стартовому скрипту или None
+        """
         self.root = root
         self.vfs = vfs
-        self.cwd = []                            # текущая директория (список частей)
+        self.cwd = []
 
         root.title(f"Эмулятор - {VFS_NAME}")
         root.geometry("700x450")
         root.minsize(500, 300)
 
-        # Поле ввода — внизу
         self.entry = tk.Entry(root, font=("Consolas", 12))
         self.entry.pack(side=tk.BOTTOM, fill=tk.X, padx=5, pady=(0, 5))
         self.entry.bind("<Return>", self.on_enter)
         self.entry.focus_set()
 
-        # Область вывода — сверху
         self.output = tk.Text(root, font=("Consolas", 11))
         self.output.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=5, pady=5)
 
         if motd:
             self.print_line(motd)
 
-        self.print_line(f"{VFS_NAME}: введите команду (ls, cd, cat, tac, exit)")
+        self.print_line(
+            f"{VFS_NAME}: команды: ls, cd, cat, tac, touch, rm, exit"
+        )
 
         if script_path:
             run_script(self, script_path)
 
-    #вывод
-
     def print_line(self, text):
-        """Добавляет строку в область вывода. Пустую строку — тоже."""
+        """
+        Добавляет одну строку в область вывода.
+        """
         self.output.insert(tk.END, text + "\n")
         self.output.see(tk.END)
 
-    #ввод
-
     def on_enter(self, event):
-        """Обработка Enter в поле ввода."""
+        """
+        Обрабатывает нажатие Enter в поле ввода.
+        """
         text = self.entry.get()
         self.entry.delete(0, tk.END)
 
@@ -283,8 +425,10 @@ class Window:
 
     def execute(self, text):
         """
-        Выполняет одну команду. Возвращает текст для вывода.
-        Если команда exit — закрывает окно и возвращает None.
+        Выполняет одну команду.
+
+        Возвращает текст для вывода. Для команд без вывода (например,
+        успешный cd) возвращает None, чтобы не печатать пустую строку.
         """
         parts = text.split()
         command = parts[0]
@@ -301,7 +445,7 @@ class Window:
         if command == "cd":
             text_out, new_cwd = cmd_cd(self.vfs, self.cwd, args)
             self.cwd = new_cwd
-            return text_out or None              # пустой вывод — не печатаем
+            return text_out or None
 
         if command == "cat":
             return cmd_cat(self.vfs, self.cwd, args)
@@ -309,13 +453,25 @@ class Window:
         if command == "tac":
             return cmd_tac(self.vfs, self.cwd, args)
 
+        if command == "touch":
+            text_out = cmd_touch(self.vfs, self.cwd, args)
+            return text_out or None
+
+        if command == "rm":
+            text_out = cmd_rm(self.vfs, self.cwd, args)
+            return text_out or None
+
         return f"Ошибка: неизвестная команда '{command}'"
 
 
-#скрипт
+# ---------------------------------------------------------------- скрипт
 
 def run_script(window, path):
-    """Выполняет стартовый скрипт: построчно, с эхо-выводом."""
+    """
+    Выполняет стартовый скрипт построчно.
+
+    Если очередная команда закрыла окно (exit), выполнение прекращается.
+    """
     window.print_line(f"--- выполнение скрипта: {path} ---")
 
     try:
@@ -337,17 +493,18 @@ def run_script(window, path):
         if result is not None:
             window.print_line(result)
 
-        # Если окно закрыто (exit) — прекращаем выполнение
         if not window.root.winfo_exists():
             return
 
     window.print_line("--- скрипт завершён ---")
 
 
-#main
+# ---------------------------------------------------------------- main
 
 def main():
-    """Точка входа: читает аргументы, грузит VFS, открывает окно."""
+    """
+    Точка входа приложения.
+    """
     vfs_path, script_path = parse_args(sys.argv[1:])
 
     print(f"VFS: {vfs_path}")
